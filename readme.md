@@ -2,10 +2,10 @@
 
 [ x ] - Modelar BD
 
-[ ]- Deve ser possível criar um usuário
-() criar a rota user e para criacao de um novo usuario estara na rota POST(user/create-user)
+[ x ]- Deve ser possível criar um usuário
+( x ) criar a rota user e para criacao de um novo usuario estara na rota POST(user/create-user)
 
-[ ]- Deve ser possível identificar o usuário entre as requisições
+[ x ]- Deve ser possível identificar o usuário entre as requisições (COOKIE)
 [ ]- Deve ser possível registrar uma refeição feita, com as seguintes informações:
 
     *As refeições devem ser relacionadas a um usuário.*
