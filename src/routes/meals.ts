@@ -26,7 +26,11 @@ export async function mealsRoute(app: FastifyInstance) {
       const createMealBodySchema = z.object({
         name: z.string(),
         description: z.string(),
-        time: z.string().datetime(),
+        time: z
+          .string()
+          .datetime()
+          .optional()
+          .default(() => new Date().toISOString()),
         on_diet: z.boolean(),
       });
 
@@ -36,18 +40,123 @@ export async function mealsRoute(app: FastifyInstance) {
 
       let sessionId = request.cookies.session_id;
 
-      console.log(name, description, on_diet, sessionId);
-
       await knexInstance("meals").insert({
         id: crypto.randomUUID(),
         name,
         description,
         time: new Date(),
         on_diet,
-        session_id: sessionId,
+        user_session_id: sessionId,
       });
 
       return reply.status(201).send("Registro enviado com sucesso!");
+    }
+  );
+
+  app.get(
+    "/:id",
+    { preHandler: [checkSessionIdExists] },
+    async (request, reply) => {
+      const getTransactionParamsSchema = z.object({
+        id: z.string().uuid(),
+      });
+
+      let sessionId = request.cookies.session_id;
+
+      const { id } = getTransactionParamsSchema.parse(request.params);
+
+      console.log(id);
+      const meal = await knexInstance("meals")
+        .select("*")
+        .where("id", id)
+        .first();
+
+      if (meal === undefined)
+        return reply.status(400).send("Registro nao encontrado.");
+
+      if (meal.user_session_id === sessionId) {
+        return { meal };
+      }
+
+      return reply.status(400).send("Usuario nao autorizado!");
+    }
+  );
+
+  app.delete(
+    "/:id",
+    { preHandler: [checkSessionIdExists] },
+    async (request, reply) => {
+      const getMealIdToDeleteSchema = z.object({
+        id: z.string().uuid(),
+      });
+
+      const getUserSessionIdSchema = z.object({
+        user_session_id: z.string().uuid(),
+      });
+      //Id do registro
+      const { id } = getMealIdToDeleteSchema.parse(request.params);
+      //Id da session
+      let sessionId = request.cookies.session_id;
+
+      try {
+        const result = await knexInstance("meals")
+          .delete()
+          .where("id", id)
+          .andWhere("user_session_id", sessionId);
+
+        if (result !== 0) {
+          reply.status(200).send("Registro deletado");
+        }
+
+        return reply.status(404).send("Registro nao encontrado");
+      } catch (error) {
+        reply.status(400).send("Erro ao deletar registro: " + error);
+      }
+    }
+  );
+  app.patch(
+    "/:id",
+    { preHandler: checkSessionIdExists },
+    async (request, reply) => {
+      const { id } = request.params;
+
+      const { name, description, time, on_diet } = request.body || {};
+
+      console.log(name);
+
+      if (
+        on_diet === undefined &&
+        name === undefined &&
+        description === undefined &&
+        time === undefined
+      ) {
+        return reply.status(400).send("Nenhum campo enviado!");
+      }
+
+      let sessionId = request.cookies.session_id;
+
+      const updateData = {};
+
+      if (on_diet !== undefined) updateData.on_diet = on_diet;
+      if (name !== undefined) updateData.name = name;
+      if (description !== undefined) updateData.description = description;
+      if (time !== undefined) updateData.time = time;
+
+      const meal = await knexInstance("meals")
+        .select("*")
+        .where("id", id)
+        .first();
+
+      if (meal.user_session_id === sessionId && meal !== null) {
+        console.log("Entrou aqui!");
+        await knexInstance("meals").where("id", id).update(updateData);
+
+        const updatedMeal = await knexInstance("meals").where("id", id).first();
+
+        reply.status(200).send(updatedMeal);
+      }
+
+      reply.status(400).send("Nao foi possivel deletar registro.");
     }
   );
 }
