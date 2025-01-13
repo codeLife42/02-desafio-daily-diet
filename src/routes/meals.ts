@@ -159,4 +159,59 @@ export async function mealsRoute(app: FastifyInstance) {
       reply.status(400).send("Nao foi possivel deletar registro.");
     }
   );
+
+  app.get(
+    "/metrics",
+    { preHandler: checkSessionIdExists },
+    async (request, reply) => {
+      let sessionId = request.cookies.session_id;
+
+      const userData = await knexInstance("meals")
+        .select("*")
+        .where("user_session_id", sessionId);
+
+      //Quantidade de refeicoes
+      let mealsQuantity = userData.length;
+      //Refeicoes na dieta
+      let mealOnDiet = 0;
+      //Refeicoes fora da dieta
+      let mealOffDiet = 0;
+      //Melhor sequencia
+      let bestSequence = 0;
+      //Melhor sequencia indicador
+      let bestSequenceIndicator = 0;
+
+      userData.forEach((meal) => {
+        if (meal.on_diet) {
+          mealOnDiet++;
+          bestSequenceIndicator++;
+        } else {
+          mealOffDiet++;
+          if (bestSequence < bestSequenceIndicator) {
+            bestSequence = bestSequenceIndicator;
+          }
+          bestSequenceIndicator = 0;
+        }
+      });
+
+      if (bestSequenceIndicator > bestSequence) {
+        bestSequence = bestSequenceIndicator;
+      }
+
+      console.log(userData);
+
+      reply
+        .status(200)
+        .send(
+          "Quantidade de refeicoes registradas: " +
+            mealsQuantity +
+            "\nRefeicoes na dieta: " +
+            mealOnDiet +
+            "\nRefeicoes fora da dieta: " +
+            mealOffDiet +
+            "\nMelhor sequencia da dieta: " +
+            bestSequence
+        );
+    }
+  );
 }
